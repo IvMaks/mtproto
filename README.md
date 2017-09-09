@@ -10,3 +10,6 @@ This library is a fork of https://github.com/sdidyk/mtproto
 ## License
 
 MIT
+
+### TODO
+  - tl-parser > ast 
