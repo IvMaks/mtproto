@@ -273,9 +273,10 @@ func (m *MTProto) readRoutine() {
 				}
 			}
 			if err != nil {
-				log.Fatalln("ReadRoutine: ", err)
+				log.Println("ReadRoutine: ", err)
+			} else {
+				ch <- data
 			}
-			ch <- data
 		}(ch)
 
 		select {
@@ -298,6 +299,7 @@ func (m *MTProto) InvokeSync(msg TL) (*TL, error) {
 			switch err.Error_code {
 			case errorSeeOther:
 				var newDc int32
+
 				n, _ := fmt.Sscanf(err.Error_message, "PHONE_MIGRATE_%d", &newDc)
 				if n != 1 {
 					n, _ := fmt.Sscanf(err.Error_message, "NETWORK_MIGRATE_%d", &newDc)
@@ -309,6 +311,7 @@ func (m *MTProto) InvokeSync(msg TL) (*TL, error) {
 				if !ok {
 					return nil, fmt.Errorf("wrong DC index: %d", newDc)
 				}
+
 				err := m.reconnect(newDcAddr)
 				if err != nil {
 					return nil, err
