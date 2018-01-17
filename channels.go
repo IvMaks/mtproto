@@ -4,7 +4,7 @@ import "fmt"
 
 func (m *MTProto) GetChannels() (channels []TL_channel, err error) {
         if dialogs, err := m.MessagesGetDialogs(true, int32(0), int32(0), TL_inputPeerEmpty{}, int32(100)); err == nil {
-		for _, chat := range (*dialogs).(TL_messages_dialogs).Chats {
+		for _, chat := range (*dialogs).(TL_messages_dialogsSlice).Chats {
 			switch chat.(type) {
 			case TL_channel:
 				channels = append(channels, chat.(TL_channel))
