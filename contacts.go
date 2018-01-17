@@ -33,3 +33,14 @@ func (m *MTProto) ContactsGetTopPeers(correspondents, botsPM, botsInline, groups
 
 	return tl, nil
 }
+
+func (m *MTProto) AddContactByPhone(phoneNumber string) (*TL, error){
+	contacts := make([]TL,0)
+	contacts = append(contacts,TL_inputPhoneContact{
+		Phone:phoneNumber,
+	})
+	return m.InvokeSync(TL_contacts_importContacts{
+		Contacts:contacts,
+		Replace:TL_boolTrue{},
+	})
+}
