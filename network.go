@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
-	"os"
 	"fmt"
 	"net"
+	"os"
 	"sync"
 	"time"
 )
@@ -128,7 +128,6 @@ func (nw *Network) Connect() error {
 }
 
 func (nw *Network) Disconnect() error {
-
 	return nw.conn.Close()
 }
 

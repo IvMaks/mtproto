@@ -27,6 +27,10 @@ type MTProto struct {
 	language    string
 
 	dclist map[int32]string
+
+	cond      sync.Cond
+	mu        sync.Mutex
+	connected bool
 }
 
 type packetToSend struct {
@@ -154,7 +158,16 @@ func NewMTProto(id int32, hash string, opts ...Option) (*MTProto, error) {
 }
 
 func (m *MTProto) Connect() (err error) {
-	m.network.Connect()
+	err = m.network.Connect()
+	if err != nil {
+		return err
+	}
+
+	m.mu.Lock()
+	m.connected = true
+	m.mu.Unlock()
+
+	m.cond.Broadcast()
 
 	// start goroutines
 	go m.sendRoutine()
@@ -208,6 +221,10 @@ func (m *MTProto) Disconnect() error {
 	// close send queue
 	close(m.queueSend)
 
+	m.mu.Lock()
+	m.connected = false
+	m.mu.Unlock()
+
 	return m.network.Disconnect()
 }
 
@@ -216,13 +233,13 @@ func (m *MTProto) reconnect(newaddr string) error {
 	if err != nil {
 		return err
 	}
-
 	// renew connection
 	if newaddr != m.network.Address() {
 		m.network, err = NewNetwork(true, m.authkeyfile, m.queueSend, newaddr, m.IPv6)
 	}
 
 	err = m.Connect()
+
 	return err
 }
 
@@ -230,6 +247,12 @@ func (m *MTProto) pingRoutine() {
 	m.allDone.Add(1)
 	defer func() { m.allDone.Done() }()
 	for {
+
+		// Pause when network is not in "connected" state
+		if !m.connected {
+			m.cond.Wait()
+		}
+
 		select {
 		case <-m.stopRoutines:
 			return
@@ -244,6 +267,12 @@ func (m *MTProto) sendRoutine() {
 	m.allDone.Add(1)
 	defer func() { m.allDone.Done() }()
 	for {
+
+		// Pause when network is not in "connected" state
+		if !m.connected {
+			m.cond.Wait()
+		}
+
 		select {
 		case <-m.stopRoutines:
 			return
@@ -260,6 +289,11 @@ func (m *MTProto) readRoutine() {
 	m.allDone.Add(1)
 	defer func() { m.allDone.Done() }()
 	for {
+		// Pause when network is not in "connected" state
+		if !m.connected {
+			m.cond.Wait()
+		}
+
 		// Run async wait for data from server
 		ch := make(chan interface{}, 1)
 		go func(ch chan<- interface{}) {
@@ -267,6 +301,7 @@ func (m *MTProto) readRoutine() {
 			if err == io.EOF {
 				// TODO: Last message to the server was lost. Fix it.
 				// Connection closed by server, trying to reconnect
+
 				err = m.reconnect(m.network.Address())
 				if err != nil {
 					log.Fatalln("ReadRoutine: ", err)
@@ -311,7 +346,6 @@ func (m *MTProto) InvokeSync(msg TL) (*TL, error) {
 				if !ok {
 					return nil, fmt.Errorf("wrong DC index: %d", newDc)
 				}
-
 				err := m.reconnect(newDcAddr)
 				if err != nil {
 					return nil, err
