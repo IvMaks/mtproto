@@ -309,9 +309,8 @@ func (m *MTProto) readRoutine() {
 			}
 			if err != nil {
 				log.Println("ReadRoutine: ", err)
-			} else {
-				ch <- data
 			}
+			ch <- data
 		}(ch)
 
 		select {
