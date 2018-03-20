@@ -15,7 +15,7 @@ import (
 type INetwork interface {
 	Connect() error
 	Disconnect() error
-
+	SetSendQueueChannel(chan packetToSend)
 	Send(msg TL, resp chan response) error
 	Read() (interface{}, error)
 	Process(data interface{}) interface{}
@@ -127,6 +127,10 @@ func (nw *Network) Connect() error {
 	return nil
 }
 
+func (nw *Network) SetSendQueueChannel(ch chan packetToSend) {
+	nw.queueSend = ch
+}
+
 func (nw *Network) Disconnect() error {
 
 	return nw.conn.Close()
@@ -224,7 +228,11 @@ func (nw *Network) Read() (interface{}, error) {
 	b := make([]byte, 1)
 	n, err = nw.conn.Read(b)
 	if err != nil {
-		return nil, err
+		netOpError, ok := err.(*net.OpError)
+		if ok && netOpError.Err.Error() == "use of closed network connection" {
+			return nil, nil
+		}
+		return nil,err
 	}
 
 	if b[0] < 127 {

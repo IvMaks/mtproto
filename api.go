@@ -11744,7 +11744,7 @@ func (e TL_auth_importAuthorization) encode() []byte {
 	x := NewEncodeBuf(512)
 	x.UInt(crc_auth_importAuthorization)
 	x.Int(e.Id)
-	x.Bytes(e.Bytes)
+	x.StringBytes(e.Bytes)
 	return x.buf
 }
 
@@ -14743,7 +14743,7 @@ func (e TL_upload_saveFilePart) encode() []byte {
 	x.UInt(crc_upload_saveFilePart)
 	x.Long(e.File_id)
 	x.Int(e.File_part)
-	x.Bytes(e.Bytes)
+	x.StringBytes(e.Bytes)
 	return x.buf
 }
 
@@ -14785,7 +14785,7 @@ func (e TL_upload_saveBigFilePart) encode() []byte {
 	x.Long(e.File_id)
 	x.Int(e.File_part)
 	x.Int(e.File_total_parts)
-	x.Bytes(e.Bytes)
+	x.StringBytes(e.Bytes)
 	return x.buf
 }
 

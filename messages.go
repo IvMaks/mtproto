@@ -36,3 +36,17 @@ func (m *MTProto) MessagesSendMessage(no_webpage, silent, background, clear_draf
 		Entities:        entities,
 	})
 }
+
+func (m *MTProto) MessagesSendMedia(no_webpage, silent, background, clear_draft bool, peer TL, reply_to_msg_id int32, media TL, random_id int64, reply_markup TL) (*TL, error) {
+	return m.InvokeSync(TL_messages_sendMedia{
+		Flags:           0,
+		Silent:          false,
+		Background:      false,
+		Clear_draft:     true,
+		Peer:            peer,
+		Reply_to_msg_id: 0,
+		Media:           media,
+		Random_id:       random_id,
+		Reply_markup:    TL_null{},
+	})
+}
