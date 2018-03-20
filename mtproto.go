@@ -91,7 +91,7 @@ func WithAuthFile(authfile string, newSession bool) Option {
 }
 
 var defaultOptions = options{
-	DeviceModel:   "Unknown",
+	DeviceModel:   "PC",
 	SystemVersion: runtime.GOOS + "/" + runtime.GOARCH,
 	Language:      "en",
 	IPv6:          false,
@@ -152,6 +152,10 @@ func NewMTProto(id int32, hash string, opts ...Option) (*MTProto, error) {
 
 	return m, nil
 }
+func (m *MTProto) GetDCIP(dc int32) (string,bool) {
+	val,ok := m.dclist[dc]
+	return val,ok
+}
 
 func (m *MTProto) Connect() (err error) {
 	m.network.Connect()
@@ -184,7 +188,7 @@ func (m *MTProto) Connect() (err error) {
 			v := v.(TL_dcOption)
 			if m.IPv6 && v.Ipv6 {
 				m.dclist[v.Id] = fmt.Sprintf("[%s]:%d", v.Ip_address, v.Port)
-			} else if !v.Ipv6 {
+			} else if !v.Ipv6 && !v.Media_only{
 				m.dclist[v.Id] = fmt.Sprintf("%s:%d", v.Ip_address, v.Port)
 			}
 		}
@@ -216,6 +220,9 @@ func (m *MTProto) reconnect(newaddr string) error {
 	if err != nil {
 		return err
 	}
+	m.queueSend = make(chan packetToSend, 64)
+	m.network.SetSendQueueChannel(m.queueSend)
+	m.stopRoutines = make(chan struct{})
 
 	// renew connection
 	if newaddr != m.network.Address() {
