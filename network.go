@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
-	"os"
 	"fmt"
 	"net"
+	"os"
 	"sync"
 	"time"
 )
@@ -132,7 +132,6 @@ func (nw *Network) SetSendQueueChannel(ch chan packetToSend) {
 }
 
 func (nw *Network) Disconnect() error {
-
 	return nw.conn.Close()
 }
 

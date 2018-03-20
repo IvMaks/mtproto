@@ -27,6 +27,10 @@ type MTProto struct {
 	language    string
 
 	dclist map[int32]string
+
+	cond      sync.Cond
+	mu        sync.Mutex
+	connected bool
 }
 
 type packetToSend struct {
@@ -152,13 +156,22 @@ func NewMTProto(id int32, hash string, opts ...Option) (*MTProto, error) {
 
 	return m, nil
 }
-func (m *MTProto) GetDCIP(dc int32) (string,bool) {
-	val,ok := m.dclist[dc]
-	return val,ok
+func (m *MTProto) GetDCIP(dc int32) (string, bool) {
+	val, ok := m.dclist[dc]
+	return val, ok
 }
 
 func (m *MTProto) Connect() (err error) {
-	m.network.Connect()
+	err = m.network.Connect()
+	if err != nil {
+		return err
+	}
+
+	m.mu.Lock()
+	m.connected = true
+	m.mu.Unlock()
+
+	m.cond.Broadcast()
 
 	// start goroutines
 	go m.sendRoutine()
@@ -188,7 +201,7 @@ func (m *MTProto) Connect() (err error) {
 			v := v.(TL_dcOption)
 			if m.IPv6 && v.Ipv6 {
 				m.dclist[v.Id] = fmt.Sprintf("[%s]:%d", v.Ip_address, v.Port)
-			} else if !v.Ipv6 && !v.Media_only{
+			} else if !v.Ipv6 && !v.Media_only {
 				m.dclist[v.Id] = fmt.Sprintf("%s:%d", v.Ip_address, v.Port)
 			}
 		}
@@ -212,6 +225,10 @@ func (m *MTProto) Disconnect() error {
 	// close send queue
 	close(m.queueSend)
 
+	m.mu.Lock()
+	m.connected = false
+	m.mu.Unlock()
+
 	return m.network.Disconnect()
 }
 
@@ -230,6 +247,7 @@ func (m *MTProto) reconnect(newaddr string) error {
 	}
 
 	err = m.Connect()
+
 	return err
 }
 
@@ -237,6 +255,12 @@ func (m *MTProto) pingRoutine() {
 	m.allDone.Add(1)
 	defer func() { m.allDone.Done() }()
 	for {
+
+		// Pause when network is not in "connected" state
+		if !m.connected {
+			m.cond.Wait()
+		}
+
 		select {
 		case <-m.stopRoutines:
 			return
@@ -251,6 +275,12 @@ func (m *MTProto) sendRoutine() {
 	m.allDone.Add(1)
 	defer func() { m.allDone.Done() }()
 	for {
+
+		// Pause when network is not in "connected" state
+		if !m.connected {
+			m.cond.Wait()
+		}
+
 		select {
 		case <-m.stopRoutines:
 			return
@@ -267,6 +297,11 @@ func (m *MTProto) readRoutine() {
 	m.allDone.Add(1)
 	defer func() { m.allDone.Done() }()
 	for {
+		// Pause when network is not in "connected" state
+		if !m.connected {
+			m.cond.Wait()
+		}
+
 		// Run async wait for data from server
 		ch := make(chan interface{}, 1)
 		go func(ch chan<- interface{}) {
@@ -274,6 +309,7 @@ func (m *MTProto) readRoutine() {
 			if err == io.EOF {
 				// TODO: Last message to the server was lost. Fix it.
 				// Connection closed by server, trying to reconnect
+
 				err = m.reconnect(m.network.Address())
 				if err != nil {
 					log.Fatalln("ReadRoutine: ", err)
@@ -281,9 +317,8 @@ func (m *MTProto) readRoutine() {
 			}
 			if err != nil {
 				log.Println("ReadRoutine: ", err)
-			} else {
-				ch <- data
 			}
+			ch <- data
 		}(ch)
 
 		select {
@@ -318,7 +353,6 @@ func (m *MTProto) InvokeSync(msg TL) (*TL, error) {
 				if !ok {
 					return nil, fmt.Errorf("wrong DC index: %d", newDc)
 				}
-
 				err := m.reconnect(newDcAddr)
 				if err != nil {
 					return nil, err
