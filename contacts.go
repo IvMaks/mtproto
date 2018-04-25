@@ -58,3 +58,14 @@ func (m *MTProto) AddContactsByPhones(phoneNumbers []string) (*TL, error){
 		Replace:TL_boolTrue{},
 	})
 }
+
+func (m *MTProto) AddContacts(cont []TL_inputPhoneContact) (*TL, error){
+	contacts := make([]TL,0)
+	for _, c := range cont {
+		contacts = append(contacts, c)
+	}
+	return m.InvokeSync(TL_contacts_importContacts{
+		Contacts:contacts,
+		Replace:TL_boolTrue{},
+	})
+}
