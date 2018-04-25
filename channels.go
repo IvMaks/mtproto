@@ -83,6 +83,14 @@ func (m *MTProto) ChannelsInviteToChannel(channel TL, users []TL) (*TL, error) {
 	})
 }
 
+func (m *MTProto) ChannelsEditAdmin(channel TL, userId TL, role TL) (*TL, error) {
+	return m.InvokeSync(TL_channels_editAdmin{
+		Channel: channel,
+		User_id: userId,
+		Role:    role,
+	})
+}
+
 func (m *MTProto) ChannelsToggleInvites(channel TL, enabled TL) (*TL, error) {
 	return m.InvokeSync(TL_channels_toggleInvites{
 		Channel: channel,
